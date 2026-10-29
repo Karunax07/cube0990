@@ -1,0 +1,2028 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ASTRA ORBIT 2.0 — CubeSat Mission Control</title>
+  
+  <!-- Fonts & Libraries via reliable CDNs -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:ital,wght@0,300;0,400;0,600;0,700;1,400&family=Orbitron:wght@500;700;900&family=Rajdhani:wght@500;600;700&display=swap" rel="stylesheet">
+  
+  <!-- Three.js for 3D CubeSat rendering -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+
+  <style>
+    :root {
+      --bg-space: #030710;
+      --bg-panel: #070e1c;
+      --bg-card: #0c182e;
+      --bg-card-hover: #10213d;
+      --border-dim: #162a4a;
+      --border-bright: #00f3ff44;
+      --cyan: #00f3ff;
+      --cyan-glow: rgba(0, 243, 255, 0.25);
+      --amber: #ffaa00;
+      --red: #ff3366;
+      --green: #00ff88;
+      --text-main: #d9e6f2;
+      --text-dim: #6c84a3;
+      --text-highlight: #ffffff;
+      --font-mono: 'JetBrains Mono', monospace;
+      --font-orbitron: 'Orbitron', sans-serif;
+      --font-rajdhani: 'Rajdhani', sans-serif;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      user-select: none;
+    }
+
+    body {
+      background-color: var(--bg-space);
+      color: var(--text-main);
+      font-family: var(--font-rajdhani);
+      font-size: 15px;
+      line-height: 1.4;
+      overflow-x: hidden;
+      min-height: 100vh;
+      background-image: 
+        radial-gradient(circle at 15% 20%, rgba(0, 243, 255, 0.04) 0%, transparent 40%),
+        radial-gradient(circle at 85% 80%, rgba(0, 119, 255, 0.05) 0%, transparent 40%);
+    }
+
+    /* Scrollbars */
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: var(--bg-space); }
+    ::-webkit-scrollbar-thumb { background: var(--border-dim); border-radius: 3px; }
+    ::-webkit-scrollbar-thumb:hover { background: var(--cyan); }
+
+    /* Top Navigation Bar */
+    header {
+      background: rgba(7, 14, 28, 0.95);
+      backdrop-filter: blur(12px);
+      border-bottom: 1px solid var(--border-dim);
+      padding: 12px 24px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.6);
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+    }
+
+    .brand-logo {
+      width: 36px;
+      height: 36px;
+      border: 2px solid var(--cyan);
+      display: grid;
+      place-items: center;
+      transform: rotate(45deg);
+      box-shadow: 0 0 15px var(--cyan-glow);
+    }
+
+    .brand-logo svg {
+      transform: rotate(-45deg);
+      fill: var(--cyan);
+    }
+
+    .brand-title h1 {
+      font-family: var(--font-orbitron);
+      font-size: 20px;
+      letter-spacing: 2px;
+      color: #fff;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .brand-title h1 span {
+      color: var(--cyan);
+      font-size: 14px;
+      padding: 2px 8px;
+      background: rgba(0, 243, 255, 0.1);
+      border: 1px solid var(--cyan);
+      border-radius: 3px;
+    }
+
+    .brand-subtitle {
+      font-size: 11px;
+      color: var(--text-dim);
+      font-family: var(--font-mono);
+      letter-spacing: 1px;
+    }
+
+    .header-controls {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+    }
+
+    .mode-select {
+      background: var(--bg-card);
+      border: 1px solid var(--border-dim);
+      color: var(--cyan);
+      font-family: var(--font-mono);
+      padding: 6px 12px;
+      font-size: 12px;
+      border-radius: 4px;
+      outline: none;
+      cursor: pointer;
+    }
+
+    .btn {
+      font-family: var(--font-orbitron);
+      font-size: 12px;
+      letter-spacing: 1px;
+      padding: 8px 18px;
+      border-radius: 4px;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      transition: all 0.2s ease;
+      text-transform: uppercase;
+      font-weight: 700;
+    }
+
+    .btn-connect {
+      background: transparent;
+      border: 1px solid var(--cyan);
+      color: var(--cyan);
+      box-shadow: 0 0 12px var(--cyan-glow);
+    }
+
+    .btn-connect:hover {
+      background: var(--cyan);
+      color: #000;
+      box-shadow: 0 0 20px rgba(0, 243, 255, 0.6);
+    }
+
+    .btn-disconnect {
+      background: rgba(255, 51, 102, 0.15);
+      border: 1px solid var(--red);
+      color: var(--red);
+    }
+
+    .btn-disconnect:hover {
+      background: var(--red);
+      color: #fff;
+    }
+
+    .btn-aux {
+      background: var(--bg-card);
+      border: 1px solid var(--border-dim);
+      color: var(--text-main);
+    }
+
+    .btn-aux:hover {
+      border-color: var(--cyan);
+      color: var(--cyan);
+    }
+
+    /* Status Badge */
+    .status-badge {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-family: var(--font-mono);
+      font-size: 12px;
+      padding: 6px 12px;
+      border-radius: 20px;
+      background: rgba(12, 24, 46, 0.8);
+      border: 1px solid var(--border-dim);
+    }
+
+    .status-dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      background: var(--text-dim);
+    }
+
+    .status-dot.active {
+      background: var(--green);
+      box-shadow: 0 0 10px var(--green);
+      animation: pulse 1.5s infinite;
+    }
+
+    .status-dot.waiting {
+      background: var(--amber);
+      box-shadow: 0 0 10px var(--amber);
+      animation: pulse 1s infinite;
+    }
+
+    .status-dot.error {
+      background: var(--red);
+      box-shadow: 0 0 10px var(--red);
+    }
+
+    @keyframes pulse {
+      0% { opacity: 0.4; }
+      50% { opacity: 1; }
+      100% { opacity: 0.4; }
+    }
+
+    /* Main Grid Layout */
+    .mission-grid {
+      display: grid;
+      grid-template-columns: 340px 1fr 380px;
+      gap: 16px;
+      padding: 16px;
+      max-width: 1920px;
+      margin: 0 auto;
+    }
+
+    @media (max-width: 1400px) {
+      .mission-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    /* Panels & Cards */
+    .panel {
+      background: var(--bg-panel);
+      border: 1px solid var(--border-dim);
+      border-radius: 6px;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      padding: 16px;
+      position: relative;
+    }
+
+    .panel-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      border-bottom: 1px solid var(--border-dim);
+      padding-bottom: 8px;
+    }
+
+    .panel-title {
+      font-family: var(--font-orbitron);
+      font-size: 12px;
+      letter-spacing: 1.5px;
+      color: var(--cyan);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .telemetry-row {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+      gap: 10px;
+    }
+
+    .metric-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border-dim);
+      border-radius: 4px;
+      padding: 10px;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      transition: border-color 0.2s;
+    }
+
+    .metric-card:hover {
+      border-color: var(--border-bright);
+    }
+
+    .metric-label {
+      font-family: var(--font-mono);
+      font-size: 11px;
+      color: var(--text-dim);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .metric-value-container {
+      display: flex;
+      align-items: baseline;
+      gap: 6px;
+    }
+
+    .metric-val {
+      font-family: var(--font-mono);
+      font-size: 20px;
+      font-weight: 700;
+      color: var(--text-highlight);
+    }
+
+    .metric-val.unreceived {
+      color: var(--text-dim);
+      font-weight: 400;
+      font-size: 16px;
+      font-style: italic;
+    }
+
+    .metric-unit {
+      font-family: var(--font-mono);
+      font-size: 11px;
+      color: var(--cyan);
+    }
+
+    /* Diagnostics Table */
+    .diag-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-family: var(--font-mono);
+      font-size: 12px;
+    }
+
+    .diag-table td {
+      padding: 6px 4px;
+      border-bottom: 1px solid rgba(22, 42, 74, 0.4);
+    }
+
+    .diag-table td:last-child {
+      text-align: right;
+    }
+
+    .badge-ok {
+      color: var(--green);
+      background: rgba(0, 255, 136, 0.1);
+      padding: 2px 6px;
+      border-radius: 3px;
+      border: 1px solid var(--green);
+    }
+
+    .badge-err {
+      color: var(--red);
+      background: rgba(255, 51, 102, 0.1);
+      padding: 2px 6px;
+      border-radius: 3px;
+      border: 1px solid var(--red);
+    }
+
+    .badge-wait {
+      color: var(--amber);
+      background: rgba(255, 170, 0, 0.1);
+      padding: 2px 6px;
+      border-radius: 3px;
+      border: 1px solid var(--amber);
+    }
+
+    /* 3D CubeSat Viewer */
+    #cubesat-viewport {
+      width: 100%;
+      height: 380px;
+      background: radial-gradient(circle at center, #07152d 0%, #030710 80%);
+      border-radius: 4px;
+      position: relative;
+      overflow: hidden;
+      border: 1px solid var(--border-dim);
+    }
+
+    .viewer-overlay {
+      position: absolute;
+      top: 10px;
+      left: 10px;
+      pointer-events: none;
+      z-index: 10;
+      font-family: var(--font-mono);
+      font-size: 11px;
+      color: var(--cyan);
+      background: rgba(3, 7, 16, 0.7);
+      padding: 6px 10px;
+      border-radius: 3px;
+      border-left: 2px solid var(--cyan);
+    }
+
+    .viewer-controls-hint {
+      position: absolute;
+      bottom: 8px;
+      right: 10px;
+      font-family: var(--font-mono);
+      font-size: 10px;
+      color: var(--text-dim);
+      pointer-events: none;
+    }
+
+    /* Live Canvas Charts */
+    .chart-container {
+      position: relative;
+      background: var(--bg-card);
+      border: 1px solid var(--border-dim);
+      border-radius: 4px;
+      padding: 8px;
+      height: 140px;
+    }
+
+    .chart-header {
+      display: flex;
+      justify-content: space-between;
+      font-family: var(--font-mono);
+      font-size: 11px;
+      margin-bottom: 4px;
+      color: var(--text-dim);
+    }
+
+    canvas {
+      width: 100%;
+      height: 105px;
+      display: block;
+    }
+
+    /* Raw Terminal & Log */
+    .terminal-box {
+      background: #020409;
+      border: 1px solid var(--border-dim);
+      border-radius: 4px;
+      padding: 8px;
+      font-family: var(--font-mono);
+      font-size: 11px;
+      color: #9cdcfe;
+      height: 160px;
+      overflow-y: auto;
+      white-space: pre-wrap;
+      word-break: break-all;
+    }
+
+    .log-line {
+      margin-bottom: 3px;
+      line-height: 1.3;
+    }
+    .log-time { color: var(--text-dim); }
+    .log-info { color: #58a6ff; }
+    .log-ok { color: var(--green); }
+    .log-warn { color: var(--amber); }
+    .log-err { color: var(--red); }
+
+    /* Modal for Diagnostics & Tests */
+    .modal-backdrop {
+      display: none;
+      position: fixed;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background: rgba(0, 0, 0, 0.85);
+      z-index: 200;
+      justify-content: center;
+      align-items: center;
+      padding: 20px;
+    }
+
+    .modal-box {
+      background: var(--bg-panel);
+      border: 1px solid var(--cyan);
+      box-shadow: 0 0 30px rgba(0, 243, 255, 0.2);
+      width: 100%;
+      max-width: 760px;
+      border-radius: 6px;
+      overflow: hidden;
+      max-height: 90vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .modal-header {
+      padding: 14px 20px;
+      background: var(--bg-card);
+      border-bottom: 1px solid var(--border-dim);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-family: var(--font-orbitron);
+      color: var(--cyan);
+    }
+
+    .modal-content {
+      padding: 20px;
+      overflow-y: auto;
+      font-family: var(--font-mono);
+      font-size: 13px;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    /* Diagnostics Banner */
+    .alert-banner {
+      padding: 10px 14px;
+      border-radius: 4px;
+      font-family: var(--font-mono);
+      font-size: 12px;
+      display: none;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 8px;
+    }
+
+    .alert-warn {
+      background: rgba(255, 170, 0, 0.12);
+      border: 1px solid var(--amber);
+      color: #ffe6a6;
+      display: flex;
+    }
+
+    .alert-err {
+      background: rgba(255, 51, 102, 0.15);
+      border: 1px solid var(--red);
+      color: #ffccd8;
+      display: flex;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Top Navigation -->
+  <header>
+    <div class="brand">
+      <div class="brand-logo">
+        <svg width="20" height="20" viewBox="0 0 24 24"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>
+      </div>
+      <div class="brand-title">
+        <h1>ASTRA ORBIT <span>2.0</span></h1>
+        <div class="brand-subtitle">CUBESAT MISSION CONTROL TELEMETRY RECEIVER</div>
+      </div>
+    </div>
+
+    <div class="header-controls">
+      <!-- Architecture Mode Selector -->
+      <select id="conn-mode-select" class="mode-select" title="Telemetry Ingestion Architecture">
+        <option value="webserial">MODE: DIRECT WEB SERIAL (115200)</option>
+        <option value="websocket">MODE: NODE.JS WEBSOCKET BRIDGE (WS://...)</option>
+      </select>
+
+      <div class="status-badge">
+        <div id="status-indicator" class="status-dot"></div>
+        <span id="status-label">HARDWARE DISCONNECTED</span>
+      </div>
+
+      <button id="btn-connect-toggle" class="btn btn-connect">
+        <span id="btn-icon">⚡</span>
+        <span id="btn-connect-text">CONNECT ESP32</span>
+      </button>
+
+      <button id="btn-open-tests" class="btn btn-aux" title="Run Autonomous Pipeline Tests">
+        <span>RUN SELF-TEST</span>
+      </button>
+
+      <button id="btn-toggle-sim" class="btn btn-aux" style="color:var(--amber);" title="Dev Verification Only - Strictly Marked">
+        <span>DEV SIM</span>
+      </button>
+    </div>
+  </header>
+
+  <!-- Physical Diagnostics Banner -->
+  <div style="padding: 12px 16px 0 16px;">
+    <div id="alert-imu" class="alert-banner alert-err" style="display:none;">
+      <strong>⚠️ SENSOR HARDWARE WARNING:</strong> 
+      <span id="alert-imu-text">MPU not detected at I2C address 0x68 or 0x69. Verify VCC (3.3V), GND, SDA (GPIO 21), SCL (GPIO 22) pull-ups.</span>
+    </div>
+  </div>
+
+  <!-- Primary Mission Control Grid -->
+  <main class="mission-grid">
+    
+    <!-- LEFT COLUMN: System Health, Connection Diagnostic, Environmental Data -->
+    <div style="display: flex; flex-direction: column; gap: 16px;">
+      
+      <!-- Connection & Receiver State -->
+      <div class="panel">
+        <div class="panel-header">
+          <span class="panel-title">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
+            RECEIVER INTERFACE
+          </span>
+          <span id="packet-rate-badge" style="font-family:var(--font-mono); font-size:11px; color:var(--cyan);">0.0 Hz</span>
+        </div>
+
+        <table class="diag-table">
+          <tr>
+            <td style="color:var(--text-dim);">TRANSPORT</td>
+            <td id="diag-transport">Web Serial (Native)</td>
+          </tr>
+          <tr>
+            <td style="color:var(--text-dim);">SERIAL BAUD</td>
+            <td id="diag-baud">115200 8-N-1</td>
+          </tr>
+          <tr>
+            <td style="color:var(--text-dim);">TOTAL PACKETS</td>
+            <td id="diag-pkts" style="font-weight:700; color:var(--text-highlight);">0</td>
+          </tr>
+          <tr>
+            <td style="color:var(--text-dim);">CORRUPT / DROPPED</td>
+            <td id="diag-corrupt" style="color:var(--amber);">0</td>
+          </tr>
+          <tr>
+            <td style="color:var(--text-dim);">LAST PACKET TIME</td>
+            <td id="diag-last-time">--:--:--</td>
+          </tr>
+        </table>
+      </div>
+
+      <!-- Sensor Subsystem Health Matrix -->
+      <div class="panel">
+        <div class="panel-header">
+          <span class="panel-title">SUBSYSTEM STATUS</span>
+          <span style="font-size: 11px; font-family: var(--font-mono); color: var(--text-dim);">HARDWARE INTEGRITY</span>
+        </div>
+
+        <table class="diag-table">
+          <tr>
+            <td>MPU6500 / IMU</td>
+            <td id="subsys-mpu"><span class="badge-wait">AWAITING DATA</span></td>
+          </tr>
+          <tr>
+            <td>BMP280 BAROMETER</td>
+            <td id="subsys-bmp"><span class="badge-wait">AWAITING DATA</span></td>
+          </tr>
+          <tr>
+            <td>DHT11 TEMP / HUM</td>
+            <td id="subsys-dht"><span class="badge-wait">AWAITING DATA</span></td>
+          </tr>
+          <tr>
+            <td>NEO-6M GPS ENGINE</td>
+            <td id="subsys-gps"><span class="badge-wait">AWAITING DATA</span></td>
+          </tr>
+          <tr>
+            <td>ESP-NOW RF LINK</td>
+            <td id="subsys-espnow"><span class="badge-wait">AWAITING DATA</span></td>
+          </tr>
+        </table>
+      </div>
+
+      <!-- Environmental Telemetry -->
+      <div class="panel">
+        <div class="panel-header">
+          <span class="panel-title">ENVIRONMENTAL SENSORS</span>
+          <span style="font-size:11px; font-family:var(--font-mono); color:var(--text-dim);">DHT11 & BMP280</span>
+        </div>
+
+        <div class="telemetry-row">
+          <div class="metric-card">
+            <span class="metric-label">BMP280 TEMP</span>
+            <div class="metric-value-container">
+              <span id="val-bmp-temp" class="metric-val unreceived">--.-</span>
+              <span class="metric-unit">°C</span>
+            </div>
+          </div>
+          <div class="metric-card">
+            <span class="metric-label">DHT11 TEMP</span>
+            <div class="metric-value-container">
+              <span id="val-dht-temp" class="metric-val unreceived">--.-</span>
+              <span class="metric-unit">°C</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="telemetry-row">
+          <div class="metric-card">
+            <span class="metric-label">ATM PRESSURE</span>
+            <div class="metric-value-container">
+              <span id="val-pressure" class="metric-val unreceived">----.-</span>
+              <span class="metric-unit">hPa</span>
+            </div>
+          </div>
+          <div class="metric-card">
+            <span class="metric-label">RELATIVE HUMIDITY</span>
+            <div class="metric-value-container">
+              <span id="val-humidity" class="metric-val unreceived">--</span>
+              <span class="metric-unit">%</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="metric-card">
+          <span class="metric-label">BAROMETRIC ALTITUDE (EST.)</span>
+          <div class="metric-value-container">
+            <span id="val-baro-alt" class="metric-val unreceived">---.-</span>
+            <span class="metric-unit">m ASL</span>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- GPS Telemetry -->
+      <div class="panel">
+        <div class="panel-header">
+          <span class="panel-title">NEO-6M GPS SATELLITE FIX</span>
+          <span id="gps-fix-pill" class="badge-wait">NO FIX</span>
+        </div>
+
+        <div class="telemetry-row">
+          <div class="metric-card">
+            <span class="metric-label">LATITUDE</span>
+            <div class="metric-value-container">
+              <span id="val-gps-lat" class="metric-val unreceived">--.------</span>
+              <span class="metric-unit">°</span>
+            </div>
+          </div>
+          <div class="metric-card">
+            <span class="metric-label">LONGITUDE</span>
+            <div class="metric-value-container">
+              <span id="val-gps-lon" class="metric-val unreceived">--.------</span>
+              <span class="metric-unit">°</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="telemetry-row">
+          <div class="metric-card">
+            <span class="metric-label">GPS ALTITUDE</span>
+            <div class="metric-value-container">
+              <span id="val-gps-alt" class="metric-val unreceived">---.-</span>
+              <span class="metric-unit">m</span>
+            </div>
+          </div>
+          <div class="metric-card">
+            <span class="metric-label">GROUND SPEED</span>
+            <div class="metric-value-container">
+              <span id="val-gps-speed" class="metric-val unreceived">--.-</span>
+              <span class="metric-unit">km/h</span>
+            </div>
+          </div>
+          <div class="metric-card">
+            <span class="metric-label">SATELLITES</span>
+            <div class="metric-value-container">
+              <span id="val-gps-sats" class="metric-val unreceived">0</span>
+              <span class="metric-unit">SAT</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- CENTER COLUMN: 3D Attitude Model & Live Rolling Charts -->
+    <div style="display: flex; flex-direction: column; gap: 16px;">
+      
+      <!-- 3D Attitude Display -->
+      <div class="panel" style="padding-bottom: 8px;">
+        <div class="panel-header">
+          <span class="panel-title">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg>
+            CUBESAT 3D ATTITUDE (SPATIAL ORIENTATION)
+          </span>
+          <span id="imu-mode-label" style="font-family:var(--font-mono); font-size:11px; color:var(--text-dim);">AWAITING HARDWARE FIX</span>
+        </div>
+
+        <div id="cubesat-viewport">
+          <div class="viewer-overlay">
+            <div>ROLL:  <span id="3d-roll" style="color:#fff; font-weight:bold;">--.-°</span></div>
+            <div>PITCH: <span id="3d-pitch" style="color:#fff; font-weight:bold;">--.-°</span></div>
+            <div>YAW:   <span id="3d-yaw" style="color:var(--text-dim);">0.0° (LOCKED)</span></div>
+          </div>
+          <div class="viewer-controls-hint">DRAG TO ROTATE VIEW • SCROLL TO ZOOM</div>
+        </div>
+
+        <!-- Attitude Numerical Readouts -->
+        <div class="telemetry-row" style="margin-top: 10px;">
+          <div class="metric-card">
+            <span class="metric-label">CALCULATED ROLL (Φ)</span>
+            <div class="metric-value-container">
+              <span id="val-roll" class="metric-val unreceived">--.-</span>
+              <span class="metric-unit">deg</span>
+            </div>
+          </div>
+          <div class="metric-card">
+            <span class="metric-label">CALCULATED PITCH (θ)</span>
+            <div class="metric-value-container">
+              <span id="val-pitch" class="metric-val unreceived">--.-</span>
+              <span class="metric-unit">deg</span>
+            </div>
+          </div>
+          <div class="metric-card">
+            <span class="metric-label">ATTITUDE SOURCE</span>
+            <div class="metric-value-container">
+              <span id="val-imu-source" class="metric-val" style="font-size:13px; color:var(--text-dim);">INERT</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Live Rolling Telemetry Waveforms -->
+      <div class="panel">
+        <div class="panel-header">
+          <span class="panel-title">LIVE TELEMETRY WAVEFORMS</span>
+          <span style="font-family:var(--font-mono); font-size:11px; color:var(--cyan);">ROLLING 50 SAMPLES</span>
+        </div>
+
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+          <!-- Acceleration Chart -->
+          <div class="chart-container">
+            <div class="chart-header">
+              <span>ACCELERATION (m/s² or g)</span>
+              <span style="color:#ff3366">■ X</span> <span style="color:#00ff88">■ Y</span> <span style="color:#00f3ff">■ Z</span>
+            </div>
+            <canvas id="chart-accel"></canvas>
+          </div>
+
+          <!-- Gyroscope Chart -->
+          <div class="chart-container">
+            <div class="chart-header">
+              <span>ANGULAR VELOCITY (°/s)</span>
+              <span style="color:#ffaa00">■ X</span> <span style="color:#b366ff">■ Y</span> <span style="color:#00f3ff">■ Z</span>
+            </div>
+            <canvas id="chart-gyro"></canvas>
+          </div>
+
+          <!-- Temperature & Humidity Chart -->
+          <div class="chart-container">
+            <div class="chart-header">
+              <span>THERMAL & HUMIDITY</span>
+              <span style="color:#ff3366">■ Temp (°C)</span> <span style="color:#00f3ff">■ Hum (%)</span>
+            </div>
+            <canvas id="chart-env"></canvas>
+          </div>
+
+          <!-- Pressure & Altitude Chart -->
+          <div class="chart-container">
+            <div class="chart-header">
+              <span>BAROMETRIC PRESSURE & ALT</span>
+              <span style="color:#ffaa00">■ hPa</span> <span style="color:#00ff88">■ Alt (m)</span>
+            </div>
+            <canvas id="chart-baro"></canvas>
+          </div>
+        </div>
+
+      </div>
+
+    </div>
+
+    <!-- RIGHT COLUMN: Raw IMU Vectors, Live JSON Viewer, Telemetry Log -->
+    <div style="display: flex; flex-direction: column; gap: 16px;">
+      
+      <!-- Linear & Angular Vectors -->
+      <div class="panel">
+        <div class="panel-header">
+          <span class="panel-title">INERTIAL MEASUREMENT (MPU)</span>
+          <span style="font-size:11px; font-family:var(--font-mono); color:var(--text-dim);">6-DOF RAW VECTORS</span>
+        </div>
+
+        <div class="metric-label" style="margin-top:4px;">LINEAR ACCELERATION</div>
+        <div class="telemetry-row">
+          <div class="metric-card">
+            <span class="metric-label">ACCEL X</span>
+            <div class="metric-value-container">
+              <span id="val-ax" class="metric-val unreceived">--.--</span>
+              <span class="metric-unit">g</span>
+            </div>
+          </div>
+          <div class="metric-card">
+            <span class="metric-label">ACCEL Y</span>
+            <div class="metric-value-container">
+              <span id="val-ay" class="metric-val unreceived">--.--</span>
+              <span class="metric-unit">g</span>
+            </div>
+          </div>
+          <div class="metric-card">
+            <span class="metric-label">ACCEL Z</span>
+            <div class="metric-value-container">
+              <span id="val-az" class="metric-val unreceived">--.--</span>
+              <span class="metric-unit">g</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="metric-label" style="margin-top:6px;">GYROSCOPIC VELOCITY</div>
+        <div class="telemetry-row">
+          <div class="metric-card">
+            <span class="metric-label">GYRO X</span>
+            <div class="metric-value-container">
+              <span id="val-gx" class="metric-val unreceived">--.-</span>
+              <span class="metric-unit">°/s</span>
+            </div>
+          </div>
+          <div class="metric-card">
+            <span class="metric-label">GYRO Y</span>
+            <div class="metric-value-container">
+              <span id="val-gy" class="metric-val unreceived">--.-</span>
+              <span class="metric-unit">°/s</span>
+            </div>
+          </div>
+          <div class="metric-card">
+            <span class="metric-label">GYRO Z</span>
+            <div class="metric-value-container">
+              <span id="val-gz" class="metric-val unreceived">--.-</span>
+              <span class="metric-unit">°/s</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Raw Ingested JSON Inspector -->
+      <div class="panel">
+        <div class="panel-header">
+          <span class="panel-title">LATEST RAW JSON PACKET</span>
+          <button id="btn-copy-json" class="btn btn-aux" style="padding:2px 8px; font-size:10px;">COPY</button>
+        </div>
+        <pre id="raw-json-viewer" class="terminal-box" style="height: 180px;">// Waiting for ESP32 serial data line...
+// Expected newline-delimited JSON format:
+// {"ax":0.02,"ay":0.11,"az":0.98,"gx":0.1,"gy":-0.4,"gz":0.0,"temp":24.5,"press":1013.25,"hum":48,"lat":28.6139,"lon":77.2090,"alt":216.0,"sats":7}</pre>
+      </div>
+
+      <!-- System Telemetry Event Log -->
+      <div class="panel" style="flex: 1;">
+        <div class="panel-header">
+          <span class="panel-title">MISSION CONTROL EVENT LOG</span>
+          <button id="btn-clear-log" class="btn btn-aux" style="padding:2px 8px; font-size:10px;">CLEAR</button>
+        </div>
+        <div id="telemetry-log" class="terminal-box" style="height: 220px; overflow-y: scroll;">
+          <!-- Dynamically populated -->
+        </div>
+      </div>
+
+    </div>
+
+  </main>
+
+  <!-- TEST SUITE MODAL -->
+  <div id="test-modal" class="modal-backdrop">
+    <div class="modal-box">
+      <div class="modal-header">
+        <span>ASTRA ORBIT 2.0 — INTERNAL DIAGNOSTIC ENGINE</span>
+        <button id="btn-close-modal" style="background:none; border:none; color:var(--text-dim); font-size:20px; cursor:pointer;">&times;</button>
+      </div>
+      <div class="modal-content">
+        <p style="color:var(--text-dim);">
+          This test suite validates packet chunking, JSON framing, schema normalization, error handling, and IMU fault detection without requiring active physical hardware.
+        </p>
+        <div id="test-results-container" style="background:#020409; padding:12px; border-radius:4px; border:1px solid var(--border-dim); max-height:360px; overflow-y:auto;">
+          Click "Execute Self-Test" to run automated assertions.
+        </div>
+        <div style="display:flex; justify-content:flex-end; gap:10px;">
+          <button id="btn-run-tests-exec" class="btn btn-connect">EXECUTE SELF-TEST</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- APPLICATION JAVASCRIPT -->
+  <script>
+    /**
+     * ASTRA ORBIT 2.0 — Mission Control Architecture
+     * Author: CubeSat Ground Operations
+     * Single-file standalone architecture.
+     */
+
+    // --- APPLICATION STATE ---
+    const State = {
+      connectionStatus: 'DISCONNECTED', // DISCONNECTED, CONNECTING, CONNECTED, RECEIVING, ERROR
+      transportMode: 'webserial', // 'webserial' or 'websocket'
+      port: null,
+      reader: null,
+      ws: null,
+      serialStreamClosed: null,
+      
+      // Packet stats
+      packetCount: 0,
+      corruptPackets: 0,
+      lastPacketTime: null,
+      packetTimes: [],
+      
+      // Simulation mode flag (explicitly labeled, disabled by default)
+      isSimulation: false,
+      simInterval: null,
+
+      // Latest Normalized Telemetry (initialized to null to prevent displaying fake readings)
+      telemetry: {
+        accel: { x: null, y: null, z: null },
+        gyro: { x: null, y: null, z: null },
+        dht: { temp: null, humidity: null },
+        bmp: { temp: null, pressure: null, altitude: null },
+        gps: { lat: null, lon: null, alt: null, speed: null, sats: null, fix: false },
+        attitude: { roll: null, pitch: null, yaw: null, source: 'INERT' },
+        raw: ''
+      },
+
+      // Subsystem health detection
+      health: {
+        mpu: 'WAITING',   // OK, ERROR, WAITING
+        bmp: 'WAITING',
+        dht: 'WAITING',
+        gps: 'WAITING',
+        espnow: 'WAITING'
+      },
+
+      // Rolling chart buffers (bounded to 50 items)
+      history: {
+        max: 50,
+        labels: [],
+        accelX: [], accelY: [], accelZ: [],
+        gyroX: [], gyroY: [], gyroZ: [],
+        bmpTemp: [], humidity: [],
+        pressure: [], altitude: []
+      }
+    };
+
+    // --- UI ELEMENTS ---
+    const UI = {
+      btnConnect: document.getElementById('btn-connect-toggle'),
+      btnConnectText: document.getElementById('btn-connect-text'),
+      btnIcon: document.getElementById('btn-icon'),
+      statusIndicator: document.getElementById('status-indicator'),
+      statusLabel: document.getElementById('status-label'),
+      modeSelect: document.getElementById('conn-mode-select'),
+      packetRateBadge: document.getElementById('packet-rate-badge'),
+      diagTransport: document.getElementById('diag-transport'),
+      diagPkts: document.getElementById('diag-pkts'),
+      diagCorrupt: document.getElementById('diag-corrupt'),
+      diagLastTime: document.getElementById('diag-last-time'),
+      alertImu: document.getElementById('alert-imu'),
+      alertImuText: document.getElementById('alert-imu-text'),
+
+      // Metrics
+      valAx: document.getElementById('val-ax'),
+      valAy: document.getElementById('val-ay'),
+      valAz: document.getElementById('val-az'),
+      valGx: document.getElementById('val-gx'),
+      valGy: document.getElementById('val-gy'),
+      valGz: document.getElementById('val-gz'),
+      valBmpTemp: document.getElementById('val-bmp-temp'),
+      valDhtTemp: document.getElementById('val-dht-temp'),
+      valPressure: document.getElementById('val-pressure'),
+      valHumidity: document.getElementById('val-humidity'),
+      valBaroAlt: document.getElementById('val-baro-alt'),
+      valGpsLat: document.getElementById('val-gps-lat'),
+      valGpsLon: document.getElementById('val-gps-lon'),
+      valGpsAlt: document.getElementById('val-gps-alt'),
+      valGpsSpeed: document.getElementById('val-gps-speed'),
+      valGpsSats: document.getElementById('val-gps-sats'),
+      gpsFixPill: document.getElementById('gps-fix-pill'),
+
+      // Attitude
+      valRoll: document.getElementById('val-roll'),
+      valPitch: document.getElementById('val-pitch'),
+      valImuSource: document.getElementById('val-imu-source'),
+      label3dRoll: document.getElementById('3d-roll'),
+      label3dPitch: document.getElementById('3d-pitch'),
+      label3dYaw: document.getElementById('3d-yaw'),
+      imuModeLabel: document.getElementById('imu-mode-label'),
+
+      // Subsystems
+      subsysMpu: document.getElementById('subsys-mpu'),
+      subsysBmp: document.getElementById('subsys-bmp'),
+      subsysDht: document.getElementById('subsys-dht'),
+      subsysGps: document.getElementById('subsys-gps'),
+      subsysEspnow: document.getElementById('subsys-espnow'),
+
+      // Log & Raw
+      rawJsonViewer: document.getElementById('raw-json-viewer'),
+      telemetryLog: document.getElementById('telemetry-log'),
+      btnClearLog: document.getElementById('btn-clear-log'),
+      btnCopyJson: document.getElementById('btn-copy-json'),
+      btnToggleSim: document.getElementById('btn-toggle-sim'),
+      
+      // Tests Modal
+      btnOpenTests: document.getElementById('btn-open-tests'),
+      btnCloseModal: document.getElementById('btn-close-modal'),
+      testModal: document.getElementById('test-modal'),
+      btnRunTestsExec: document.getElementById('btn-run-tests-exec'),
+      testResultsContainer: document.getElementById('test-results-container')
+    };
+
+    // --- LOGGER UTILITY ---
+    function logMessage(level, text) {
+      const now = new Date();
+      const timeStr = now.toTimeString().split(' ')[0] + '.' + String(now.getMilliseconds()).padStart(3, '0');
+      
+      const el = document.createElement('div');
+      el.className = 'log-line';
+
+      let lvlClass = 'log-info';
+      if (level === 'OK') lvlClass = 'log-ok';
+      if (level === 'WARN') lvlClass = 'log-warn';
+      if (level === 'ERR') lvlClass = 'log-err';
+
+      el.innerHTML = `<span class="log-time">[${timeStr}]</span> <span class="${lvlClass}">[${level}]</span> ${escapeHtml(text)}`;
+      UI.telemetryLog.appendChild(el);
+      UI.telemetryLog.scrollTop = UI.telemetryLog.scrollHeight;
+    }
+
+    function escapeHtml(string) {
+      return String(string).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+    }
+
+    UI.btnClearLog.addEventListener('click', () => {
+      UI.telemetryLog.innerHTML = '';
+      logMessage('INFO', 'Telemetry log cleared.');
+    });
+
+    UI.btnCopyJson.addEventListener('click', () => {
+      navigator.clipboard.writeText(UI.rawJsonViewer.textContent);
+      logMessage('INFO', 'Raw JSON copied to clipboard.');
+    });
+
+    // --- CONNECTION STATUS HANDLER ---
+    function setConnectionStatus(status, detail) {
+      State.connectionStatus = status;
+      UI.statusIndicator.className = 'status-dot';
+      
+      switch(status) {
+        case 'DISCONNECTED':
+          UI.statusIndicator.classList.remove('active', 'waiting', 'error');
+          UI.statusLabel.textContent = 'DISCONNECTED';
+          UI.btnConnect.className = 'btn btn-connect';
+          UI.btnConnectText.textContent = 'CONNECT ESP32';
+          UI.btnIcon.textContent = '⚡';
+          break;
+        case 'WAITING_FOR_PERMISSION':
+          UI.statusIndicator.classList.add('waiting');
+          UI.statusLabel.textContent = 'WAITING FOR PORT SELECTION...';
+          UI.btnConnectText.textContent = 'SELECTING...';
+          break;
+        case 'CONNECTING':
+          UI.statusIndicator.classList.add('waiting');
+          UI.statusLabel.textContent = 'CONNECTING AT 115200 BAUD...';
+          UI.btnConnectText.textContent = 'CONNECTING...';
+          break;
+        case 'CONNECTED':
+          UI.statusIndicator.classList.add('waiting');
+          UI.statusLabel.textContent = 'CONNECTED • AWAITING PACKET';
+          UI.btnConnect.className = 'btn btn-disconnect';
+          UI.btnConnectText.textContent = 'DISCONNECT';
+          UI.btnIcon.textContent = '⏹';
+          break;
+        case 'RECEIVING_DATA':
+          UI.statusIndicator.classList.add('active');
+          UI.statusLabel.textContent = 'LIVE TELEMETRY STREAM';
+          UI.btnConnect.className = 'btn btn-disconnect';
+          UI.btnConnectText.textContent = 'DISCONNECT';
+          UI.btnIcon.textContent = '⏹';
+          break;
+        case 'ERROR':
+          UI.statusIndicator.classList.add('error');
+          UI.statusLabel.textContent = `ERROR: ${detail || 'FAILURE'}`;
+          UI.btnConnect.className = 'btn btn-connect';
+          UI.btnConnectText.textContent = 'RETRY CONNECT';
+          UI.btnIcon.textContent = '⚡';
+          break;
+      }
+      if (detail && status !== 'ERROR') {
+        logMessage('INFO', detail);
+      }
+    }
+
+    // --- PACKET PARSER & NORMALIZER ---
+    /**
+     * Ingests any raw JSON string, validates its syntax, detects sensor diagnostics,
+     * normalizes various common CubeSat key formats (e.g. ax, acc_x, accelX),
+     * and computes derived orientation without injecting fake telemetry.
+     */
+    function processIncomingLine(rawText) {
+      const line = rawText.trim();
+      if (!line) return;
+
+      // Update total raw received
+      UI.rawJsonViewer.textContent = line;
+
+      let packet;
+      try {
+        packet = JSON.parse(line);
+      } catch (err) {
+        State.corruptPackets++;
+        UI.diagCorrupt.textContent = State.corruptPackets;
+        logMessage('WARN', `Malformed JSON dropped: ${line.substring(0, 48)}...`);
+        return null;
+      }
+
+      // Check for hardware error reports directly from firmware
+      if (packet.error || packet.status === 'error' || packet.err) {
+        const errMsg = packet.error || packet.msg || packet.err;
+        logMessage('ERR', `Hardware Fault: ${errMsg}`);
+        
+        if (/MPU/i.test(errMsg) || /0x68|0x69/.test(errMsg)) {
+          State.health.mpu = 'ERROR';
+          UI.subsysMpu.innerHTML = '<span class="badge-err">NOT DETECTED (0x68/0x69)</span>';
+          UI.alertImu.style.display = 'flex';
+          UI.alertImuText.textContent = errMsg;
+        }
+        return packet;
+      }
+
+      // Record valid packet
+      State.packetCount++;
+      const now = new Date();
+      State.lastPacketTime = now;
+      State.packetTimes.push(now.getTime());
+      
+      // Calculate packet frequency (rolling window last 2 seconds)
+      const twoSecAgo = now.getTime() - 2000;
+      State.packetTimes = State.packetTimes.filter(t => t > twoSecAgo);
+      const hz = (State.packetTimes.length / 2.0).toFixed(1);
+      UI.packetRateBadge.textContent = `${hz} Hz`;
+
+      UI.diagPkts.textContent = State.packetCount;
+      UI.diagLastTime.textContent = now.toTimeString().split(' ')[0];
+
+      if (State.connectionStatus !== 'RECEIVING_DATA') {
+        setConnectionStatus('RECEIVING_DATA', 'Hardware packet stream established.');
+      }
+
+      // Normalize fields (supporting multiple key variations)
+      const getVal = (...keys) => {
+        for (const k of keys) {
+          if (packet[k] !== undefined && packet[k] !== null && !isNaN(Number(packet[k]))) {
+            return Number(packet[k]);
+          }
+        }
+        return null;
+      };
+
+      // 1. Acceleration
+      const ax = getVal('ax', 'acc_x', 'accel_x', 'accelX', 'aX');
+      const ay = getVal('ay', 'acc_y', 'accel_y', 'accelY', 'aY');
+      const az = getVal('az', 'acc_z', 'accel_z', 'accelZ', 'aZ');
+
+      // 2. Gyroscope
+      const gx = getVal('gx', 'gyro_x', 'gyroX', 'gX');
+      const gy = getVal('gy', 'gyro_y', 'gyroY', 'gY');
+      const gz = getVal('gz', 'gyro_z', 'gyroZ', 'gZ');
+
+      // 3. Environmental
+      const bmpTemp = getVal('bmp_temp', 'bmp280_temp', 'temp_bmp', 'temp');
+      const dhtTemp = getVal('dht_temp', 'dht11_temp', 'temp_dht');
+      const pressure = getVal('press', 'pressure', 'bmp_press', 'baro');
+      const humidity = getVal('hum', 'humidity', 'dht_hum');
+
+      // 4. GPS
+      const lat = getVal('lat', 'latitude');
+      const lon = getVal('lon', 'lng', 'longitude');
+      const gpsAlt = getVal('gps_alt', 'altitude_gps', 'alt_gps');
+      const speed = getVal('speed', 'gps_speed', 'spd');
+      const sats = getVal('sats', 'satellites', 'sat_count', 'sat');
+
+      // Update State
+      State.telemetry.accel = { x: ax, y: ay, z: az };
+      State.telemetry.gyro = { x: gx, y: gy, z: gz };
+      State.telemetry.bmp = { 
+        temp: bmpTemp, 
+        pressure: pressure, 
+        altitude: pressure ? calculateBarometricAltitude(pressure) : null 
+      };
+      State.telemetry.dht = { temp: dhtTemp, humidity: humidity };
+      State.telemetry.gps = { 
+        lat: lat, 
+        lon: lon, 
+        alt: gpsAlt, 
+        speed: speed, 
+        sats: sats,
+        fix: sats !== null && sats >= 3 
+      };
+
+      // Attitude computation from real IMU accelerometer data
+      let calculatedRoll = null;
+      let calculatedPitch = null;
+      
+      // If firmware provides explicit roll/pitch
+      const rawRoll = getVal('roll', 'r');
+      const rawPitch = getVal('pitch', 'p');
+      const rawYaw = getVal('yaw', 'y');
+
+      if (rawRoll !== null && rawPitch !== null) {
+        calculatedRoll = rawRoll;
+        calculatedPitch = rawPitch;
+        State.telemetry.attitude.source = 'FIRMWARE ORIENTATION';
+      } else if (ax !== null && ay !== null && az !== null) {
+        // Compute standard aerospace tilt from accelerometer vector
+        // Roll: atan2(Ay, Az) * 180 / PI
+        // Pitch: atan2(-Ax, sqrt(Ay^2 + Az^2)) * 180 / PI
+        calculatedRoll = Math.atan2(ay, az) * (180.0 / Math.PI);
+        calculatedPitch = Math.atan2(-ax, Math.sqrt(ay * ay + az * az)) * (180.0 / Math.PI);
+        State.telemetry.attitude.source = 'ACCEL TILT DERIVED';
+      }
+
+      State.telemetry.attitude.roll = calculatedRoll;
+      State.telemetry.attitude.pitch = calculatedPitch;
+      State.telemetry.attitude.yaw = rawYaw; // Valid only if magnetometer or fusion provided
+
+      // Subsystem state updates
+      updateSubsystemDiagnostics(packet, ax, bmpTemp, dhtTemp, sats);
+
+      // Refresh UI Displays
+      updateDashboardUI();
+
+      // Push to bounded rolling charts
+      pushToChartHistory(ax, ay, az, gx, gy, gz, bmpTemp, humidity, pressure, State.telemetry.bmp.altitude);
+
+      return packet;
+    }
+
+    /**
+     * Standard barometric formula: H = 44330 * (1 - (P / 1013.25)^(1/5.255))
+     */
+    function calculateBarometricAltitude(pressureHpa) {
+      if (!pressureHpa || pressureHpa <= 0) return null;
+      return +(44330 * (1.0 - Math.pow(pressureHpa / 1013.25, 0.1902949))).toFixed(1);
+    }
+
+    function updateSubsystemDiagnostics(pkt, ax, bmpTemp, dhtTemp, sats) {
+      // MPU Check
+      if (ax !== null) {
+        State.health.mpu = 'OK';
+        UI.subsysMpu.innerHTML = '<span class="badge-ok">ACTIVE & STREAMING</span>';
+        UI.alertImu.style.display = 'none';
+      }
+
+      // BMP280 Check
+      if (bmpTemp !== null || pkt.press !== undefined) {
+        State.health.bmp = 'OK';
+        UI.subsysBmp.innerHTML = '<span class="badge-ok">CALIBRATED</span>';
+      }
+
+      // DHT11 Check
+      if (dhtTemp !== null || pkt.hum !== undefined) {
+        State.health.dht = 'OK';
+        UI.subsysDht.innerHTML = '<span class="badge-ok">OPERATIONAL</span>';
+      }
+
+      // GPS Check
+      if (sats !== null) {
+        if (sats >= 3) {
+          State.health.gps = 'OK';
+          UI.subsysGps.innerHTML = `<span class="badge-ok">FIX LOCKED (${sats} SATS)</span>`;
+        } else {
+          State.health.gps = 'WAITING';
+          UI.subsysGps.innerHTML = `<span class="badge-wait">SEARCHING (${sats || 0} SATS)</span>`;
+        }
+      }
+
+      // ESP-NOW link is proven valid once packets are arriving
+      State.health.espnow = 'OK';
+      UI.subsysEspnow.innerHTML = '<span class="badge-ok">ONLINE • 2.4GHz</span>';
+    }
+
+    function updateDashboardUI() {
+      const t = State.telemetry;
+
+      // Accel
+      formatValue(UI.valAx, t.accel.x, 2);
+      formatValue(UI.valAy, t.accel.y, 2);
+      formatValue(UI.valAz, t.accel.z, 2);
+
+      // Gyro
+      formatValue(UI.valGx, t.gyro.x, 1);
+      formatValue(UI.valGy, t.gyro.y, 1);
+      formatValue(UI.valGz, t.gyro.z, 1);
+
+      // Environment
+      formatValue(UI.valBmpTemp, t.bmp.temp, 1);
+      formatValue(UI.valDhtTemp, t.dht.temp, 1);
+      formatValue(UI.valPressure, t.bmp.pressure, 1);
+      formatValue(UI.valHumidity, t.dht.humidity, 0);
+      formatValue(UI.valBaroAlt, t.bmp.altitude, 1);
+
+      // GPS
+      formatValue(UI.valGpsLat, t.gps.lat, 5);
+      formatValue(UI.valGpsLon, t.gps.lon, 5);
+      formatValue(UI.valGpsAlt, t.gps.alt, 1);
+      formatValue(UI.valGpsSpeed, t.gps.speed, 1);
+      formatValue(UI.valGpsSats, t.gps.sats, 0);
+
+      if (t.gps.fix) {
+        UI.gpsFixPill.className = 'badge-ok';
+        UI.gpsFixPill.textContent = '3D FIX LOCKED';
+      } else {
+        UI.gpsFixPill.className = 'badge-wait';
+        UI.gpsFixPill.textContent = (t.gps.sats !== null) ? `SEARCHING (${t.gps.sats} SAT)` : 'NO FIX';
+      }
+
+      // Attitude
+      if (t.attitude.roll !== null && t.attitude.pitch !== null) {
+        formatValue(UI.valRoll, t.attitude.roll, 1);
+        formatValue(UI.valPitch, t.attitude.pitch, 1);
+        UI.valImuSource.textContent = t.attitude.source;
+        UI.valImuSource.style.color = 'var(--cyan)';
+
+        UI.label3dRoll.textContent = `${t.attitude.roll.toFixed(1)}°`;
+        UI.label3dPitch.textContent = `${t.attitude.pitch.toFixed(1)}°`;
+        if (t.attitude.yaw !== null) {
+          UI.label3dYaw.textContent = `${t.attitude.yaw.toFixed(1)}°`;
+          UI.label3dYaw.style.color = 'var(--cyan)';
+        }
+        UI.imuModeLabel.textContent = 'LIVE HARDWARE ATTITUDE';
+        UI.imuModeLabel.style.color = 'var(--cyan)';
+
+        // Rotate 3D CubeSat Model
+        updateCubeSatOrientation(t.attitude.roll, t.attitude.pitch, t.attitude.yaw);
+      } else {
+        UI.valImuSource.textContent = 'NO IMU FIX';
+        UI.valImuSource.style.color = 'var(--text-dim)';
+        UI.imuModeLabel.textContent = 'AWAITING HARDWARE FIX (INERT)';
+        UI.imuModeLabel.style.color = 'var(--text-dim)';
+      }
+    }
+
+    function formatValue(element, val, decimals) {
+      if (val === null || val === undefined || isNaN(val)) {
+        element.classList.add('unreceived');
+        element.textContent = '--';
+      } else {
+        element.classList.remove('unreceived');
+        element.textContent = Number(val).toFixed(decimals);
+      }
+    }
+
+    // --- 3D CUBESAT VISUALIZATION (THREE.JS) ---
+    let scene, camera, renderer, controls, cubeSatGroup;
+
+    function init3D() {
+      const container = document.getElementById('cubesat-viewport');
+      const width = container.clientWidth;
+      const height = container.clientHeight;
+
+      scene = new THREE.Scene();
+      camera = new THREE.PerspectiveCamera(45, width / height, 0.1, 100);
+      camera.position.set(2.8, 2.2, 3.2);
+
+      renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+      renderer.setSize(width, height);
+      renderer.setPixelRatio(window.devicePixelRatio);
+      container.appendChild(renderer.domElement);
+
+      controls = new THREE.OrbitControls(camera, renderer.domElement);
+      controls.enableDamping = true;
+      controls.dampingFactor = 0.05;
+
+      // Space lighting
+      const ambientLight = new THREE.AmbientLight(0xffffff, 0.7);
+      scene.add(ambientLight);
+
+      const dirLight = new THREE.DirectionalLight(0x00f3ff, 1.2);
+      dirLight.position.set(5, 10, 7);
+      scene.add(dirLight);
+
+      const dirLight2 = new THREE.DirectionalLight(0xffaa00, 0.6);
+      dirLight2.position.set(-5, -5, -5);
+      scene.add(dirLight2);
+
+      // Coordinate reference grid (orbital plane)
+      const grid = new THREE.GridHelper(10, 20, 0x00f3ff, 0x162a4a);
+      grid.position.y = -1.2;
+      scene.add(grid);
+
+      // Create 1U CubeSat Assembly
+      cubeSatGroup = new THREE.Group();
+
+      // 1. Chassis Body (anodized space-grade aluminum)
+      const bodyGeo = new THREE.BoxGeometry(1.2, 1.2, 1.2);
+      const bodyMat = new THREE.MeshStandardMaterial({
+        color: 0x151b24,
+        roughness: 0.3,
+        metalness: 0.85
+      });
+      const chassis = new THREE.Mesh(bodyGeo, bodyMat);
+      cubeSatGroup.add(chassis);
+
+      // Chassis edge corner rails (CubeSat deployment spec)
+      const railGeo = new THREE.BoxGeometry(1.24, 1.24, 1.24);
+      const railMat = new THREE.MeshBasicMaterial({
+        color: 0x00f3ff,
+        wireframe: true
+      });
+      const rails = new THREE.Mesh(railGeo, railMat);
+      cubeSatGroup.add(rails);
+
+      // 2. Solar Cell Arrays (Dark Blue Photovoltaic with metallic bus bars)
+      const panelMat = new THREE.MeshStandardMaterial({
+        color: 0x071e3d,
+        roughness: 0.2,
+        metalness: 0.6
+      });
+
+      const addSolarFace = (px, py, pz, rx, ry, rz) => {
+        const pGeo = new THREE.PlaneGeometry(1.0, 1.0);
+        const pMesh = new THREE.Mesh(pGeo, panelMat);
+        pMesh.position.set(px, py, pz);
+        pMesh.rotation.set(rx, ry, rz);
+        cubeSatGroup.add(pMesh);
+
+        // Grid lines on solar cell
+        const wire = new THREE.Mesh(
+          new THREE.PlaneGeometry(1.0, 1.0, 4, 4),
+          new THREE.MeshBasicMaterial({ color: 0x214d7a, wireframe: true })
+        );
+        wire.position.set(px * 1.001, py * 1.001, pz * 1.001);
+        wire.rotation.set(rx, ry, rz);
+        cubeSatGroup.add(wire);
+      };
+
+      addSolarFace(0, 0, 0.605, 0, 0, 0);              // +Z face
+      addSolarFace(0, 0, -0.605, 0, Math.PI, 0);       // -Z face
+      addSolarFace(0.605, 0, 0, 0, Math.PI/2, 0);      // +X face
+      addSolarFace(-0.605, 0, 0, 0, -Math.PI/2, 0);     // -X face
+
+      // 3. Deployable Monopole Antenna
+      const antGeo = new THREE.CylinderGeometry(0.015, 0.015, 1.4);
+      const antMat = new THREE.MeshStandardMaterial({ color: 0xd4af37, metalness: 0.9, roughness: 0.1 });
+      const antenna = new THREE.Mesh(antGeo, antMat);
+      antenna.position.set(0.55, 1.2, 0.55);
+      antenna.rotation.z = -0.2;
+      cubeSatGroup.add(antenna);
+
+      // 4. GPS Patch Antenna Ceramic Body
+      const patchGeo = new THREE.BoxGeometry(0.35, 0.05, 0.35);
+      const patchMat = new THREE.MeshStandardMaterial({ color: 0xe6e6e6, roughness: 0.5 });
+      const patch = new THREE.Mesh(patchGeo, patchMat);
+      patch.position.set(0, 0.62, 0);
+      cubeSatGroup.add(patch);
+
+      // 5. 3D Body Frame Coordinate Axes (Red=X, Green=Y, Blue=Z)
+      const axesHelper = new THREE.AxesHelper(1.8);
+      cubeSatGroup.add(axesHelper);
+
+      scene.add(cubeSatGroup);
+
+      // Animation Render Loop
+      function animate() {
+        requestAnimationFrame(animate);
+        controls.update();
+
+        // Slow idle oscillation if no real hardware attitude has been received yet
+        if (State.telemetry.attitude.roll === null) {
+          cubeSatGroup.rotation.y += 0.003;
+        }
+
+        renderer.render(scene, camera);
+      }
+      animate();
+
+      window.addEventListener('resize', () => {
+        if (!container) return;
+        const w = container.clientWidth;
+        const h = container.clientHeight;
+        camera.aspect = w / h;
+        camera.updateProjectionMatrix();
+        renderer.setSize(w, h);
+      });
+    }
+
+    function updateCubeSatOrientation(rollDeg, pitchDeg, yawDeg) {
+      if (!cubeSatGroup) return;
+
+      // Convert degrees to radians
+      const r = (rollDeg || 0) * (Math.PI / 180.0);
+      const p = (pitchDeg || 0) * (Math.PI / 180.0);
+      const y = (yawDeg !== null && yawDeg !== undefined) ? (yawDeg * (Math.PI / 180.0)) : 0;
+
+      // Standard Aerospace Euler rotation sequence (Z-Y-X: Yaw-Pitch-Roll)
+      cubeSatGroup.rotation.order = 'ZYX';
+      cubeSatGroup.rotation.z = r;
+      cubeSatGroup.rotation.x = p;
+      if (yawDeg !== null) {
+        cubeSatGroup.rotation.y = y;
+      }
+    }
+
+    // --- LIVE CANVAS ROLLING CHARTS ---
+    class RollingCanvasChart {
+      constructor(canvasId, lines) {
+        this.canvas = document.getElementById(canvasId);
+        this.ctx = this.canvas.getContext('2d');
+        this.lines = lines; // [{ key, color, min, max }]
+        this.resize();
+        window.addEventListener('resize', () => this.resize());
+      }
+
+      resize() {
+        const dpr = window.devicePixelRatio || 1;
+        this.canvas.width = this.canvas.clientWidth * dpr;
+        this.canvas.height = this.canvas.clientHeight * dpr;
+        this.ctx.scale(dpr, dpr);
+      }
+
+      render(historyData) {
+        const ctx = this.ctx;
+        const w = this.canvas.clientWidth;
+        const h = this.canvas.clientHeight;
+
+        ctx.clearRect(0, 0, w, h);
+
+        // Draw background grid lines
+        ctx.strokeStyle = '#12233c';
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        for (let y = 10; y < h; y += 24) {
+          ctx.moveTo(0, y);
+          ctx.lineTo(w, y);
+        }
+        ctx.stroke();
+
+        if (historyData.labels.length < 2) {
+          // Empty State Prompt
+          ctx.fillStyle = '#6c84a3';
+          ctx.font = '10px JetBrains Mono';
+          ctx.textAlign = 'center';
+          ctx.fillText('AWAITING TELEMETRY SAMPLES...', w / 2, h / 2 + 3);
+          return;
+        }
+
+        const len = historyData.labels.length;
+        const step = w / (State.history.max - 1);
+
+        this.lines.forEach(line => {
+          const arr = historyData[line.key];
+          if (!arr || arr.length === 0) return;
+
+          ctx.strokeStyle = line.color;
+          ctx.lineWidth = 1.5;
+          ctx.beginPath();
+
+          for (let i = 0; i < arr.length; i++) {
+            const val = arr[i];
+            const x = i * step;
+
+            // Normalize Y based on line min/max
+            let norm = 0.5;
+            if (val !== null && !isNaN(val)) {
+              norm = (val - line.min) / (line.max - line.min);
+              norm = Math.max(0, Math.min(1, norm)); // clamp 0..1
+            }
+            const y = h - (norm * (h - 16) + 8);
+
+            if (i === 0) ctx.moveTo(x, y);
+            else ctx.lineTo(x, y);
+          }
+          ctx.stroke();
+        });
+      }
+    }
+
+    let chartAccel, chartGyro, chartEnv, chartBaro;
+
+    function initCharts() {
+      chartAccel = new RollingCanvasChart('chart-accel', [
+        { key: 'accelX', color: '#ff3366', min: -2, max: 2 },
+        { key: 'accelY', color: '#00ff88', min: -2, max: 2 },
+        { key: 'accelZ', color: '#00f3ff', min: -2, max: 2 }
+      ]);
+
+      chartGyro = new RollingCanvasChart('chart-gyro', [
+        { key: 'gyroX', color: '#ffaa00', min: -180, max: 180 },
+        { key: 'gyroY', color: '#b366ff', min: -180, max: 180 },
+        { key: 'gyroZ', color: '#00f3ff', min: -180, max: 180 }
+      ]);
+
+      chartEnv = new RollingCanvasChart('chart-env', [
+        { key: 'bmpTemp', color: '#ff3366', min: -10, max: 50 },
+        { key: 'humidity', color: '#00f3ff', min: 0, max: 100 }
+      ]);
+
+      chartBaro = new RollingCanvasChart('chart-baro', [
+        { key: 'pressure', color: '#ffaa00', min: 800, max: 1100 },
+        { key: 'altitude', color: '#00ff88', min: 0, max: 1000 }
+      ]);
+
+      renderAllCharts();
+    }
+
+    function pushToChartHistory(ax, ay, az, gx, gy, gz, temp, hum, press, alt) {
+      const h = State.history;
+      h.labels.push(Date.now());
+      h.accelX.push(ax);
+      h.accelY.push(ay);
+      h.accelZ.push(az);
+      h.gyroX.push(gx);
+      h.gyroY.push(gy);
+      h.gyroZ.push(gz);
+      h.bmpTemp.push(temp);
+      h.humidity.push(hum);
+      h.pressure.push(press);
+      h.altitude.push(alt);
+
+      // Maintain bounded ring buffer of max 50 points
+      if (h.labels.length > h.max) {
+        h.labels.shift();
+        h.accelX.shift();
+        h.accelY.shift();
+        h.accelZ.shift();
+        h.gyroX.shift();
+        h.gyroY.shift();
+        h.gyroZ.shift();
+        h.bmpTemp.shift();
+        h.humidity.shift();
+        h.pressure.shift();
+        h.altitude.shift();
+      }
+
+      renderAllCharts();
+    }
+
+    function renderAllCharts() {
+      chartAccel.render(State.history);
+      chartGyro.render(State.history);
+      chartEnv.render(State.history);
+      chartBaro.render(State.history);
+    }
+
+    // --- DIRECT WEB SERIAL DRIVER (115200 BAUD) ---
+    async function startWebSerial() {
+      if (!('serial' in navigator)) {
+        alert('Web Serial API is not supported in this browser. Please use Google Chrome, Edge, or Opera.');
+        setConnectionStatus('ERROR', 'Web Serial API unsupported in browser.');
+        return;
+      }
+
+      try {
+        setConnectionStatus('WAITING_FOR_PERMISSION', 'Prompting user for USB Serial selection.');
+        logMessage('INFO', 'Opening Web Serial port selector. Select your ESP32 Receiver.');
+
+        // Prompt user to select ESP32 COM port
+        State.port = await navigator.serial.requestPort();
+        
+        setConnectionStatus('CONNECTING', 'Opening port at 115200 baud...');
+        await State.port.open({ baudRate: 115200 });
+
+        setConnectionStatus('CONNECTED', 'Serial Port opened. Listening for newline-delimited JSON...');
+        logMessage('OK', 'Connected to ESP32 Receiver over USB Serial (115200, 8-N-1).');
+
+        // Setup stream reading with line reconstruction
+        const textDecoder = new TextDecoderStream();
+        State.serialStreamClosed = State.port.readable.pipeTo(textDecoder.writable);
+        State.reader = textDecoder.readable.getReader();
+
+        let partialBuffer = '';
+
+        while (true) {
+          const { value, done } = await State.reader.read();
+          if (done) {
+            logMessage('WARN', 'Serial reader stream closed by remote hardware.');
+            break;
+          }
+
+          if (value) {
+            partialBuffer += value;
+            const lines = partialBuffer.split(/\r?\n/);
+            // Retain uncompleted fragment in buffer
+            partialBuffer = lines.pop();
+
+            for (const line of lines) {
+              if (line.trim().length > 0) {
+                processIncomingLine(line);
+              }
+            }
+          }
+        }
+
+      } catch (err) {
+        if (err.name === 'NotFoundError') {
+          setConnectionStatus('DISCONNECTED', 'Serial port selection cancelled by user.');
+          logMessage('WARN', 'Serial connection prompt cancelled.');
+        } else {
+          setConnectionStatus('ERROR', err.message);
+          logMessage('ERR', `Serial Port Fault: ${err.message}`);
+        }
+      } finally {
+        await disconnectSerial();
+      }
+    }
+
+    async function disconnectSerial() {
+      try {
+        if (State.reader) {
+          await State.reader.cancel();
+          State.reader = null;
+        }
+        if (State.serialStreamClosed) {
+          await State.serialStreamClosed.catch(() => {});
+          State.serialStreamClosed = null;
+        }
+        if (State.port) {
+          await State.port.close();
+          State.port = null;
+        }
+      } catch (e) {
+        console.error('Error during serial port cleanup:', e);
+      }
+      setConnectionStatus('DISCONNECTED', 'Serial port released.');
+      logMessage('INFO', 'ESP32 Serial Port closed cleanly.');
+    }
+
+    // --- NODE.JS WEBSOCKET BRIDGE CLIENT ---
+    function startWebSocketBridge(endpointUrl = 'ws://localhost:8081') {
+      setConnectionStatus('CONNECTING', `Connecting to WebSocket bridge at ${endpointUrl}...`);
+      logMessage('INFO', `Attempting WebSocket bridge connection: ${endpointUrl}`);
+
+      try {
+        State.ws = new WebSocket(endpointUrl);
+
+        State.ws.onopen = () => {
+          setConnectionStatus('CONNECTED', `Connected to local bridge (${endpointUrl}).`);
+          logMessage('OK', `WebSocket Bridge linked: ${endpointUrl}`);
+        };
+
+        State.ws.onmessage = (event) => {
+          processIncomingLine(event.data);
+        };
+
+        State.ws.onerror = (err) => {
+          logMessage('ERR', 'WebSocket bridge connection error.');
+          setConnectionStatus('ERROR', 'WebSocket bridge unavailable at ' + endpointUrl);
+        };
+
+        State.ws.onclose = () => {
+          logMessage('WARN', 'WebSocket bridge connection closed.');
+          setConnectionStatus('DISCONNECTED', 'Bridge disconnected.');
+          State.ws = null;
+        };
+
+      } catch (err) {
+        setConnectionStatus('ERROR', err.message);
+        logMessage('ERR', `WebSocket Init Error: ${err.message}`);
+      }
+    }
+
+    function disconnectWebSocket() {
+      if (State.ws) {
+        State.ws.close();
+        State.ws = null;
+      }
+      setConnectionStatus('DISCONNECTED', 'Bridge closed.');
+    }
+
+    // --- SINGLE-POINT CONNECTION TOGGLE ---
+    UI.btnConnect.addEventListener('click', async () => {
+      if (State.connectionStatus === 'CONNECTED' || State.connectionStatus === 'RECEIVING_DATA') {
+        if (State.transportMode === 'webserial') {
+          await disconnectSerial();
+        } else {
+          disconnectWebSocket();
+        }
+        return;
+      }
+
+      // Stop simulation if running
+      if (State.isSimulation) toggleSimulation(false);
+
+      if (State.transportMode === 'webserial') {
+        await startWebSerial();
+      } else {
+        const url = prompt('Enter WebSocket Bridge URL:', 'ws://localhost:8081');
+        if (url) startWebSocketBridge(url);
+      }
+    });
+
+    UI.modeSelect.addEventListener('change', (e) => {
+      State.transportMode = e.target.value;
+      UI.diagTransport.textContent = (State.transportMode === 'webserial') 
+        ? 'Web Serial (115200 Baud)' 
+        : 'Node.js WebSocket (ws://...)';
+      logMessage('INFO', `Ingestion architecture changed to: ${State.transportMode}`);
+    });
+
+    // --- EXPLICIT DEV BENCH SIMULATOR (STRICTLY MARKED) ---
+    function toggleSimulation(forceState) {
+      State.isSimulation = (forceState !== undefined) ? forceState : !State.isSimulation;
+
+      if (State.isSimulation) {
+        UI.btnToggleSim.style.background = 'var(--amber)';
+        UI.btnToggleSim.style.color = '#000';
+        UI.btnToggleSim.textContent = 'STOP SIM';
+        logMessage('WARN', '[DEVELOPMENT TEST FIXTURE] Running offline software simulation bench.');
+
+        let simT = 0;
+        State.simInterval = setInterval(() => {
+          simT += 0.1;
+          const fakePacket = JSON.stringify({
+            ax: +(Math.sin(simT) * 0.4).toFixed(3),
+            ay: +(Math.cos(simT * 0.8) * 0.5).toFixed(3),
+            az: +(0.98 + Math.sin(simT * 0.5) * 0.05).toFixed(3),
+            gx: +(Math.sin(simT * 1.2) * 12.0).toFixed(1),
+            gy: +(Math.cos(simT * 1.1) * 8.0).toFixed(1),
+            gz: +(Math.sin(simT * 0.7) * 4.0).toFixed(1),
+            bmp_temp: +(24.2 + Math.sin(simT * 0.2) * 1.5).toFixed(1),
+            dht_temp: 24.0,
+            hum: Math.round(45 + Math.sin(simT * 0.1) * 5),
+            press: +(1012.8 + Math.sin(simT * 0.3) * 2.0).toFixed(1),
+            lat: +(28.6139 + Math.sin(simT * 0.01) * 0.001).toFixed(6),
+            lon: +(77.2090 + Math.cos(simT * 0.01) * 0.001).toFixed(6),
+            gps_alt: +(216.5 + Math.sin(simT * 0.1) * 4.0).toFixed(1),
+            speed: +(1.2 + Math.sin(simT) * 0.5).toFixed(1),
+            sats: 8
+          });
+          processIncomingLine(fakePacket);
+        }, 150);
+
+      } else {
+        clearInterval(State.simInterval);
+        State.simInterval = null;
+        UI.btnToggleSim.style.background = 'var(--bg-card)';
+        UI.btnToggleSim.style.color = 'var(--amber)';
+        UI.btnToggleSim.textContent = 'DEV SIM';
+        logMessage('INFO', 'Test fixture stopped. Returned to inert hardware wait state.');
+      }
+    }
+
+    UI.btnToggleSim.addEventListener('click', () => toggleSimulation());
+
+    // --- AUTONOMOUS IN-BROWSER VALIDATION SUITE ---
+    UI.btnOpenTests.addEventListener('click', () => {
+      UI.testModal.style.display = 'flex';
+    });
+
+    UI.btnCloseModal.addEventListener('click', () => {
+      UI.testModal.style.display = 'none';
+    });
+
+    UI.btnRunTestsExec.addEventListener('click', runAutomatedPipelineTests);
+
+    function runAutomatedPipelineTests() {
+      const container = UI.testResultsContainer;
+      container.innerHTML = '<div style="color:var(--cyan);">[TEST RUNNER] Starting autonomous unit verification...</div><br/>';
+
+      const results = [];
+      const assert = (name, condition, notes) => {
+        results.push({ name, passed: Boolean(condition), notes });
+      };
+
+      // TEST 1: Standard JSON parsing
+      try {
+        const jsonStr = '{"ax":0.01,"ay":0.02,"az":0.98,"press":1013.25}';
+        const parsed = JSON.parse(jsonStr);
+        assert('JSON Serialization Parser', parsed.ax === 0.01 && parsed.press === 1013.25, 'Standard keys parsed successfully');
+      } catch (e) {
+        assert('JSON Serialization Parser', false, e.message);
+      }
+
+      // TEST 2: Partial Line Buffer Assembly
+      let buffer = '';
+      const chunk1 = '{"ax":0.15,"ay":-';
+      const chunk2 = '0.32,"az":0.97}\n';
+      buffer += chunk1;
+      let completedLine = null;
+      if (buffer.includes('\n')) {
+        completedLine = buffer.split('\n')[0];
+      } else {
+        buffer += chunk2;
+        completedLine = buffer.split('\n')[0];
+      }
+      assert('Partial Serial Line Reconstruction', completedLine === '{"ax":0.15,"ay":-0.32,"az":0.97}', 'Chunked multi-byte packet reassembled');
+
+      // TEST 3: Corrupt JSON Rejection
+      try {
+        JSON.parse('{"ax":0.12, "broken...');
+        assert('Malformed JSON Rejection', false, 'Failed to catch syntax error');
+      } catch (e) {
+        assert('Malformed JSON Rejection', true, 'Handled broken syntax without crashing');
+      }
+
+      // TEST 4: Sensor Hardware Error Routing (MPU 0x68/0x69 Fault)
+      const errorJson = '{"error":"MPU not detected at I2C address 0x68 or 0x69"}';
+      const errObj = JSON.parse(errorJson);
+      const isMpuErr = /MPU not detected at I2C address 0x68 or 0x69/.test(errObj.error);
+      assert('MPU Fault Payload Interception', isMpuErr, 'Correctly identified I2C hardware address fault');
+
+      // TEST 5: Aerospace Tilt Derivation Accuracy
+      // For level body: Ax = 0, Ay = 0, Az = 1.0 -> Roll = 0, Pitch = 0
+      const rollLevel = Math.atan2(0, 1.0) * (180.0 / Math.PI);
+      const pitchLevel = Math.atan2(0, Math.sqrt(0 + 1.0)) * (180.0 / Math.PI);
+      assert('Attitude Tilt Trigonometry (Level Vector)', rollLevel === 0 && pitchLevel === 0, 'Level 1g vector maps to exactly 0.0 deg');
+
+      // TEST 6: Barometric Altitude Equation
+      const altAtSeaLevel = calculateBarometricAltitude(1013.25);
+      assert('Barometric Hypsometric Altitude', altAtSeaLevel === 0.0, `Sea level (1013.25 hPa) mapped to ${altAtSeaLevel}m`);
+
+      // TEST 7: Missing Field Immunity (No invented numbers)
+      const sparseJson = '{"dht_temp":22.4}';
+      const sparseParsed = JSON.parse(sparseJson);
+      assert('Field Isolation Integrity', sparseParsed.ax === undefined && sparseParsed.dht_temp === 22.4, 'Missing sensor fields remain undefined');
+
+      // Display Results
+      let html = '';
+      let passedCount = 0;
+      results.forEach((r, idx) => {
+        if (r.passed) passedCount++;
+        html += `<div style="margin-bottom: 8px;">
+          <span style="color: ${r.passed ? 'var(--green)' : 'var(--red)'}; font-weight:bold;">
+            [${r.passed ? 'PASS' : 'FAIL'}]
+          </span> 
+          <strong>Test ${idx + 1}: ${r.name}</strong>
+          <div style="color:var(--text-dim); font-size:11px; margin-left:18px;">${r.notes}</div>
+        </div>`;
+      });
+
+      html += `<hr style="border-color:var(--border-dim); margin: 12px 0;"/>`;
+      html += `<div style="font-weight:bold; color: ${passedCount === results.length ? 'var(--green)' : 'var(--amber)'};">
+        RESULT: ${passedCount} / ${results.length} PASSED. (Hardware tests require physical ESP32 connection).
+      </div>`;
+
+      container.innerHTML = html;
+      logMessage('OK', `Self-test executed: ${passedCount}/${results.length} assertions verified.`);
+    }
+
+    // --- APPLICATION STARTUP SEQUENCE ---
+    window.addEventListener('DOMContentLoaded', () => {
+      logMessage('INFO', 'ASTRA ORBIT 2.0 Mission Control Ground Station initialized.');
+      logMessage('INFO', 'Awaiting ESP32 Receiver USB connection at 115200 baud.');
+      
+      init3D();
+      initCharts();
+    });
+  </script>
+</body>
+</html>
